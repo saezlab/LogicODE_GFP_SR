@@ -14,12 +14,13 @@ Cpd <- t(read.table(file = "Compound_List.csv",header = F,sep = "\n",stringsAsFa
 # DateTag <- c("291118","031218")
 # DateTag <- "071218"
 DateTag <- "101218"
+# DateTag <- "030119"
 # ModelTag <- c('M','MA')
 # ModelTag <- c('MC','MAC')
 # ModelTag <- c('M','MA','MC','MAC')
 # ModelTag <- c('M','MC')
-# ModelTag <- 'MCP'
 ModelTag <- 'MCP'
+# ModelTag <- 'MCP'
 # ModelSIF <- c("Results_SingleModels_SR_LogicODE_NoCrosstalk_minimal.sif",
 #               "Results_SingleModels_SR_LogicODE_NoCrosstalk_minimal_withAbsorbNode.sif")
 # ModelSIF <- c("Results_SingleModels_SR_LogicODE_withCrosstalk_minimal.sif",
@@ -39,11 +40,13 @@ ModelSIF <- "Results_SingleModels_SR_LogicODE_withCrosstalk_minimal_ApoptosisAND
 # RunTag <- c("3","4")
 # RunTag <- 6
 RunTag <- 7
+# RunTag <- 8
 # TimeTag <- c("1800","1800","1800","3600")
 # TimeTag <- c("1800","1800")
 # TimeTag <- 3600
 TimeTag <- 3600
-
+InRoundRep <- 3
+# InRoundRep <- 5
 
 # Extract models from individual compounds 
 # AllModels_M <- list()
@@ -56,8 +59,10 @@ for (counter_mod in 1:length(ModelTag)) {
   
   for (counter in 1:length(Cpd)) {
     print(paste0("Mapping Model ",ModelTag[counter_mod]," Compound: ",counter,"/",length(Cpd)))
-    if (file.exists(paste0("Results_GFP_",DateTag[counter_mod],"/",ModelSIF[counter_mod],"_InRoundRep3_Time",TimeTag[counter_mod],"_Run",RunTag[counter_mod],"_",Cpd[counter],".RData"))) {
-      load(paste0("Results_GFP_",DateTag[counter_mod],"/",ModelSIF[counter_mod],"_InRoundRep3_Time",TimeTag[counter_mod],"_Run",RunTag[counter_mod],"_",Cpd[counter],".RData"))
+    if (file.exists(paste0("Results_GFP_",DateTag[counter_mod],"/",ModelSIF[counter_mod],"_InRoundRep",InRoundRep[counter_mod],"_Time",TimeTag[counter_mod],"_Run",RunTag[counter_mod],"_",Cpd[counter],".RData"))) {
+      if (counter==13) {counter=14} else if (counter==14) {counter=13} # Fix wrong indices of DMSO and DMEM in result files
+      load(paste0("Results_GFP_",DateTag[counter_mod],"/",ModelSIF[counter_mod],"_InRoundRep",InRoundRep[counter_mod],"_Time",TimeTag[counter_mod],"_Run",RunTag[counter_mod],"_",Cpd[counter],".RData"))
+      if (counter==13) {counter=14} else if (counter==14) {counter=13} # Return the indices
       AllModels[[counter]] <- All_SR_Models_Multi  
       rm(All_SR_Models_Multi)
     } else {
@@ -299,6 +304,36 @@ for (counter_mod in 1:length(ModelTag)) {
             col=MyColours_tau,tracecol=NA)
   dev.off()
 }
+
+# ===================================
+# Extract k and tau parameter for machine learning tasks in Weka
+
+# install.packages('foreign')
+library(foreign)
+
+k_tau_mean <- cbind(k_mean,tau_mean)
+k_tau_mean_class <- cbind(k_tau_mean,
+                          c("DILI","NegCt","DILI","UPR","NegCt","DIKI","OSR","DIKI",
+                            "DILI","DIKI","OSR","DILI","Solvent","Solvent","DDR","NegCt",
+                            "Solvent","DILI","NegCt","DIKI","NegCt","NegCt","DILI","DILI",
+                            "DILI","DILI","DILI","DILI","UPR","DILI","UPR","NegCt","DILI","NegCt"))
+colnames(k_tau_mean_class)[ncol(k_tau_mean_class)] <- "Class"
+k_tau_mean_class <- as.data.frame(k_tau_mean_class)
+write.arff(x = k_tau_mean_class,file = "GFP_to_ML.arff")
+
+k_tau_mean_class_compact <- cbind(k_tau_mean,
+                                  c("DILI","NegCt","DILI","PosCt","NegCt","DIKI","PosCt","DIKI",
+                                    "DILI","DIKI","PosCt","DILI","NegCt","NegCt","PosCt","NegCt",
+                                    "NegCt","DILI","NegCt","DIKI","NegCt","NegCt","DILI","DILI",
+                                    "DILI","DILI","DILI","DILI","PosCt","DILI","PosCt","NegCt","DILI","NegCt"))
+colnames(k_tau_mean_class_compact)[ncol(k_tau_mean_class_compact)] <- "Class"
+k_tau_mean_class_compact <- as.data.frame(k_tau_mean_class_compact)
+write.arff(x = k_tau_mean_class_compact,file = "GFP_to_ML_compact.arff")
+
+# sub-select only DILI and DIKI
+k_tau_mean_class_DILI_DIKI <- k_tau_mean_class[c(which(k_tau_mean_class$Class=="DILI"),which(k_tau_mean_class$Class=="DIKI")),]
+k_tau_mean_class_DILI_DIKI <- as.data.frame(k_tau_mean_class_DILI_DIKI)
+write.arff(x = k_tau_mean_class_DILI_DIKI,file = "GFP_to_ML_only_DILI_DIKI.arff")
 
 
 # ===================================
